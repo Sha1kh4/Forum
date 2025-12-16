@@ -1,8 +1,14 @@
 export default function Header() {
   return (
-    <header className="text-yellow-600 body-font bg-black">
-      <div className="container mx-auto flex flex-wrap p-5 flex-col md:flex-row items-center justify-end">
-        <a href="/login">
+    <header className="bg-gray-800 text-yellow-600 shadow-sm sticky top-0 z-30">
+      <div className="container mx-auto px-5 py-4 flex justify-between items-center">
+                <div>
+          <h1 className="text-2xl font-bold text-gray-900">Q&A Forum</h1>
+          <p className="text-sm text-gray-600">
+            Ask questions, share knowledge
+          </p>
+        </div>
+        <a href="/admin">
           <button className="inline-flex items-center bg-yellow-100 border-0 py-1 px-3 focus:outline-none hover:bg-gray-200 rounded text-base mt-4 md:mt-0">
             Login
             <svg
