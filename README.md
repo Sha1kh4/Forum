@@ -50,9 +50,9 @@ curl -X 'POST' \
   -H 'accept: application/json' \
   -H 'Content-Type: application/json' \
   -d '{
-  "username": "string",
+  "username": "admin",
   "password": "admin",
-  "email": "string"
+  "email": "admin@admin.com"
 }'
 ```
 5. Access the application:
