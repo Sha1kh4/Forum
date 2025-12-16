@@ -8,7 +8,8 @@ A full-stack Q&A forum application built with FastAPI (backend) and Next.js (fro
   - Ask questions
   - Answer questions
   - View all questions and answers
-  - Real-time updates with SWR
+  - Real-time updates with WebSockets and SWR
+  - Instant notifications for new questions
 
 - **Admin Features**
   - Secure authentication with JWT
@@ -21,6 +22,7 @@ A full-stack Q&A forum application built with FastAPI (backend) and Next.js (fro
 
 ### Backend
 - **FastAPI** - Modern Python web framework
+- **WebSockets** - Real-time bi-directional communication
 - **SQLAlchemy** - SQL toolkit and ORM
 - **SQLite** - Database
 - **JWT** - Authentication
@@ -34,6 +36,226 @@ A full-stack Q&A forum application built with FastAPI (backend) and Next.js (fro
 - **SWR** - Data fetching and caching
 - **Radix UI** - Accessible component primitives
 
+## Architecture Overview
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[Web Browser]
+        B[Mobile Browser]
+    end
+    
+    subgraph "Frontend - Next.js"
+        C[React Components]
+        D[WebSocket Client]
+        E[SWR Cache]
+    end
+    
+    subgraph "Backend - FastAPI"
+        F[REST API Endpoints]
+        G[WebSocket Server]
+        H[ConnectionManager]
+        I[Auth Middleware]
+    end
+    
+    subgraph "Data Layer"
+        J[(SQLite Database)]
+        K[SQLAlchemy ORM]
+    end
+    
+    A --> C
+    B --> C
+    C --> F
+    C --> D
+    D <-->|Real-time Updates| G
+    G --> H
+    F --> I
+    I --> K
+    K --> J
+    F --> K
+    
+    style G fill:#4F46E5
+    style D fill:#4F46E5
+    style H fill:#4F46E5
+```
+
+### WebSocket Real-time Flow
+
+```mermaid
+sequenceDiagram
+    participant U1 as User 1
+    participant U2 as User 2
+    participant WS as WebSocket Server
+    participant API as REST API
+    participant DB as Database
+    
+    Note over U1,U2: Users connect via WebSocket
+    U1->>WS: Connect WebSocket
+    U2->>WS: Connect WebSocket
+    WS-->>U1: Connection Accepted
+    WS-->>U2: Connection Accepted
+    
+    Note over U1,DB: User 1 posts a question
+    U1->>API: POST /question
+    API->>DB: Save Question
+    DB-->>API: Question Saved
+    API-->>U1: 200 OK
+    
+    Note over WS,U2: Broadcast to all clients
+    API->>WS: Broadcast new_question
+    WS-->>U1: New Question Event
+    WS-->>U2: New Question Event
+    
+    Note over U2,DB: User 2 posts an answer
+    U2->>API: POST /answer
+    API->>DB: Save Answer
+    DB-->>API: Answer Saved
+    API-->>U2: 200 OK
+    
+    API->>WS: Broadcast new_answer
+    WS-->>U1: New Answer Event
+    WS-->>U2: New Answer Event
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Auth as Auth Endpoint
+    participant JWT as JWT Handler
+    participant DB as Database
+    
+    User->>Frontend: Enter Credentials
+    Frontend->>Auth: POST /auth/token
+    Auth->>DB: Verify User
+    DB-->>Auth: User Found
+    Auth->>JWT: Generate Token
+    JWT-->>Auth: JWT Token
+    Auth-->>Frontend: Access Token
+    Frontend->>Frontend: Store in localStorage
+    
+    Note over User,DB: Making Authenticated Requests
+    User->>Frontend: Access Admin Panel
+    Frontend->>Auth: Request with Bearer Token
+    Auth->>JWT: Verify Token
+    JWT-->>Auth: Token Valid
+    Auth->>DB: Fetch Data
+    DB-->>Auth: Return Data
+    Auth-->>Frontend: Protected Data
+    Frontend-->>User: Display Content
+```
+
+### System Diagrams
+
+### Admin Panel Workflow
+
+```mermaid
+flowchart TD
+    Start([User Visits /admin]) --> CheckAuth{Authenticated?}
+    
+    CheckAuth -->|No| LoginForm[Show Login Form]
+    LoginForm --> EnterCreds[Enter Username & Password]
+    EnterCreds --> Submit[Submit Credentials]
+    Submit --> Verify{Valid Credentials?}
+    Verify -->|No| ShowError[Display Error Message]
+    ShowError --> LoginForm
+    Verify -->|Yes| StoreToken[Store JWT in localStorage]
+    
+    CheckAuth -->|Yes| LoadDashboard[Load Dashboard Data]
+    StoreToken --> LoadDashboard
+    
+    LoadDashboard --> FetchQuestions[Fetch All Questions]
+    FetchQuestions --> FetchAnswers[Fetch Answers for Each Question]
+    FetchAnswers --> DisplayDash[Display Dashboard]
+    
+    DisplayDash --> Actions{Admin Action}
+    
+    Actions --> ChangeStatus[Change Question Status]
+    Actions --> DeleteAnswer[Delete Answer]
+    Actions --> Logout[Logout]
+    
+    ChangeStatus --> UpdateDB[Update Database]
+    DeleteAnswer --> UpdateDB
+    UpdateDB --> Refresh[Refresh Dashboard]
+    Refresh --> DisplayDash
+    
+    Logout --> ClearToken[Clear localStorage]
+    ClearToken --> Start
+    
+    style Start fill:#4F46E5,color:#fff
+    style DisplayDash fill:#10B981,color:#fff
+    style ShowError fill:#EF4444,color:#fff
+    style StoreToken fill:#F59E0B,color:#fff
+```
+
+### Question Status Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Question Created
+    
+    Pending --> Escalated: Admin Escalates
+    Pending --> Answered: Answer Provided
+    
+    Escalated --> Answered: Answer Provided
+    Escalated --> Pending: Admin De-escalates
+    
+    Answered --> Pending: Admin Reopens
+    Answered --> Escalated: Admin Escalates
+    
+    Answered --> [*]: Resolved
+    
+    note right of Pending
+        Default state for
+        new questions
+    end note
+    
+    note right of Escalated
+        High priority
+        requires attention
+    end note
+    
+    note right of Answered
+        Question has been
+        answered by community
+    end note
+```
+
+## Database Schema
+
+```mermaid
+erDiagram
+    Users ||--o{ Questions : creates
+    Users ||--o{ Answers : creates
+    Questions ||--o{ Answers : has
+    
+    Users {
+        int userid PK
+        string username UK
+        string email UK
+        string password
+        string role
+    }
+    
+    Questions {
+        int questionid PK
+        int userid FK
+        string message
+        enum Status
+        datetime created_at
+    }
+    
+    Answers {
+        int answerid PK
+        int questionid FK
+        int userid FK
+        string message
+    }
+```
 
 ## Getting Started
 
@@ -113,6 +335,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - `GET /questions` - Get all questions
 - `POST /answer` - Submit an answer
 - `GET /answers/{questionid}` - Get answers for a specific question
+
+### WebSocket
+- `WS /ws` - WebSocket connection for real-time question updates
+
 
 ## Database Schema
 
