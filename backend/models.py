@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey , Enum
+from sqlalchemy import Column, Integer, String, ForeignKey , Enum , DateTime, func
 from sqlalchemy.orm import relationship
 from db import Base
 import enum
@@ -27,6 +27,7 @@ class Questions(Base):
     userid: int = Column(Integer, ForeignKey("users.userid"))
     message: str = Column(String)
     Status: str = Column(Enum(StatusEnum), default=StatusEnum.Pending.value)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     # Relationships
     owner = relationship("Users", back_populates="questions")
     answers = relationship("Answers", back_populates="question")
