@@ -7,7 +7,7 @@ from starlette import status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 import bcrypt  
-from models import Users
+from models import Users,Answers
 from db import SessionLocal
 
 router = APIRouter(
@@ -117,3 +117,33 @@ async def read_users_me():
     current_user = await get_current_user(token=Depends(oauth2_scheme), db=Depends(get_db))
 
     return current_user
+
+@router.delete("/answer")
+async def delete_answer(answerid: int, db: db_dependency, current_user: Users = Depends(get_current_user)):
+    answer = db.query(Answers).filter(Answers.answerid == answerid).first()
+    print(answer)
+
+    if not answer:
+        raise HTTPException(status_code=404, detail="Answer not found or not authorized to delete")
+    db.delete(answer)
+    db.commit()
+
+    return {"msg": "Answer deleted successfully"}
+
+@router.post("/change-status")
+async def change_question_status(questionid: int, new_status: str, db: db_dependency, current_user: Users = Depends(get_current_user)):
+    from models import Questions, StatusEnum
+
+    question = db.query(Questions).filter(Questions.questionid == questionid).first()
+
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    if new_status not in StatusEnum.__members__:
+        raise HTTPException(status_code=400, detail="Invalid status value")
+
+    question.Status = StatusEnum[new_status]
+    db.commit()
+    db.refresh(question)
+
+    return {"msg": "Question status updated successfully", "new_status": question.Status.value}
