@@ -18,6 +18,84 @@ A full-stack Q&A forum application built with FastAPI (backend) and Next.js (fro
   - Dashboard with statistics
   - Priority sorting for escalated questions
 
+### Installation & Setup
+
+#### Using Docker (Recommended)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Sha1kh4/Forum
+cd Forum
+```
+2. Create .env file for backend url in frontend DIR
+
+```bash 
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" >> .env
+```
+or for powershell
+
+```bash
+"NEXT_PUBLIC_API_URL=http://localhost:8000" | Out-File -Append .env
+```
+
+3. Build and start the containers:
+```bash
+docker-compose up --build
+```
+
+4. Create a admin user by making curl request to backend 
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/auth/register' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "username": "string",
+  "password": "admin",
+  "email": "string"
+}'
+```
+5. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
+
+## Local Development
+
+**Backend Setup:**
+
+```bash
+cd backend
+pip install uv
+uv sync
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+fastapi dev main.py
+```
+
+**Frontend Setup:**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Create a `.env.local` file in the frontend directory:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+Create a admin user by making curl request to backend 
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/auth/register' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "username": "string",
+  "password": "admin",
+  "email": "string"
+}'
+```
 ## Tech Stack
 
 ### Backend
@@ -265,60 +343,6 @@ erDiagram
 - Node.js 20+ (for local development)
 - Python 3.12+ (for local development)
 
-### Installation & Setup
-
-#### Using Docker (Recommended)
-
-1. Clone the repository:
-```bash
-git clone https://github.com/Sha1kh4/Forum
-cd Forum
-```
-2. Create .env file for backend url in frontend DIR
-
-```bash 
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" >> .env
-```
-or for powershell
-
-```bash
-"NEXT_PUBLIC_API_URL=http://localhost:8000" | Out-File -Append .env
-```
-
-3. Build and start the containers:
-```bash
-docker-compose up --build
-```
-
-4. Access the application:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - API Documentation: http://localhost:8000/docs
-
-## Local Development
-
-**Backend Setup:**
-
-```bash
-cd backend
-pip install uv
-uv sync
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-fastapi dev main.py
-```
-
-**Frontend Setup:**
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Create a `.env.local` file in the frontend directory:
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
 
 ## API Endpoints
 
