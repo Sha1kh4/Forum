@@ -39,6 +39,18 @@ export default function Questions() {
     }
   }, [questions, API_BASE_URL]);
 
+  // Sorting questions based on the "Escalated" status and then by "created_at"
+  const sortedQuestions = questions
+    ? [
+        ...questions
+          .filter((q) => q.Status === 'Escalated')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), // "Escalated" first, sorted by created_at
+        ...questions
+          .filter((q) => q.Status !== 'Escalated')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), // Then the rest sorted by created_at
+      ]
+    : [];
+
   // Open answer modal
   const openModal = (questionId) => {
     setCurrentQuestionId(questionId);
@@ -165,12 +177,12 @@ export default function Questions() {
       <section className="text-gray-600 body-font overflow-hidden">
         <div className="container px-5 py-24 mx-auto">
           <div className="-my-8 divide-y-2 divide-gray-100">
-            {questions.length === 0 ? (
+            {sortedQuestions.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">No questions yet. Be the first to ask!</p>
               </div>
             ) : (
-              questions.map((question) => (
+              sortedQuestions.map((question) => (
                 <div key={question.questionid} className="py-8 flex flex-wrap md:flex-nowrap">
                   <div className="md:w-64 md:mb-0 mb-6 flex-shrink-0 flex flex-col">
                     <span className="font-semibold title-font text-gray-700">{question.Status}</span>
