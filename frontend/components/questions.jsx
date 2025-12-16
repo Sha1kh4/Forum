@@ -6,14 +6,15 @@ export default function Questions() {
   const [showModal, setShowModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [currentQuestionId, setCurrentQuestionId] = useState(null);
-  const [answerMessage, setAnswerMessage] = useState("");
-  const [questionMessage, setQuestionMessage] = useState("");
-  
+  const [answerMessage, setAnswerMessage] = useState('');
+  const [questionMessage, setQuestionMessage] = useState('');
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-  
+
+  // Define the fetcher for SWR
   const fetcher = (url) => fetch(url).then((res) => res.json());
-  
-  // Fetch questions using SWR (no auth required)
+
+  // Fetch questions and answers together with SWR
   const { data: questions, error: questionsError, mutate: mutateQuestions } = useSWR(
     `${API_BASE_URL}/questions`,
     fetcher
@@ -38,103 +39,129 @@ export default function Questions() {
     }
   }, [questions, API_BASE_URL]);
 
+  // Open answer modal
   const openModal = (questionId) => {
     setCurrentQuestionId(questionId);
     setShowModal(true);
   };
 
+  // Close answer modal
   const closeModal = () => {
     setShowModal(false);
-    setAnswerMessage("");
+    setAnswerMessage('');
   };
 
+  // Open add question modal
   const openQuestionModal = () => {
     setShowQuestionModal(true);
   };
 
+  // Close add question modal
   const closeQuestionModal = () => {
     setShowQuestionModal(false);
-    setQuestionMessage("");
+    setQuestionMessage('');
   };
 
+  // Function to make POST requests using XMLHttpRequest
+  const postRequest = (url, data, onSuccess, onError) => {
+    const xhttp = new XMLHttpRequest();
+    xhttp.open('POST', url, true);
+    xhttp.setRequestHeader('Accept', 'application/json');
+    xhttp.setRequestHeader('Content-Type', 'application/json');
+
+    // Define the onload callback function
+    xhttp.onload = function () {
+      if (xhttp.status === 200) {
+        try {
+          const response = JSON.parse(xhttp.responseText);
+          onSuccess(response);
+        } catch (error) {
+          console.error('Error parsing response:', error);
+          onError('There was an error processing the response.');
+        }
+      } else {
+        console.error('Failed to submit:', xhttp.statusText);
+        onError('There was an error submitting your request.');
+      }
+    };
+
+    // Handle network errors
+    xhttp.onerror = function () {
+      console.error('Network error');
+      onError('There was an error submitting your request.');
+    };
+
+    // Send the request with the data
+    xhttp.send(JSON.stringify(data));
+  };
+
+  // Handle submitting an answer
   const handleAnswerSubmit = () => {
     if (!answerMessage.trim()) {
       alert('Please enter an answer!');
       return;
     }
 
-    fetch(`${API_BASE_URL}/answer?questionid=${currentQuestionId}&answer=${encodeURIComponent(answerMessage)}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to submit answer');
-        }
-        return response.json();
-      })
-      .then((data) => {
+    const url = `${API_BASE_URL}/answer?questionid=${currentQuestionId}&answer=${encodeURIComponent(answerMessage)}`;
+    const data = { message: answerMessage };
+
+    postRequest(
+      url,
+      data,
+      (data) => {
         setAnswers((prevAnswers) => {
           const updatedAnswers = prevAnswers[currentQuestionId]
             ? [...prevAnswers[currentQuestionId], data]
             : [data];
-          
-          return {
-            ...prevAnswers,
-            [currentQuestionId]: updatedAnswers,
-          };
+
+          return { ...prevAnswers, [currentQuestionId]: updatedAnswers };
         });
         closeModal();
-      })
-      .catch((error) => {
-        console.error('Error posting answer:', error);
-        alert('There was an error submitting your answer.');
-      });
+      },
+      (errorMessage) => {
+        alert(errorMessage);
+      }
+    );
   };
 
+  // Handle submitting a new question
   const handleQuestionSubmit = () => {
     if (!questionMessage.trim()) {
       alert('Please enter a question!');
       return;
     }
 
-    fetch(`${API_BASE_URL}/question?message=${encodeURIComponent(questionMessage)}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to submit question');
-        }
-        return response.json();
-      })
-      .then((data) => {
-        mutateQuestions();
+    const url = `${API_BASE_URL}/question?question=${encodeURIComponent(questionMessage)}`;
+    const data = { message: questionMessage };
+
+    postRequest(
+      url,
+      data,
+      () => {
+        mutateQuestions(); // Refresh questions
         closeQuestionModal();
-      })
-      .catch((error) => {
-        console.error('Error posting question:', error);
-        alert('There was an error submitting your question.');
-      });
+      },
+      (errorMessage) => {
+        alert(errorMessage);
+      }
+    );
   };
 
-  if (questionsError) return <div className="min-h-screen flex items-center justify-center text-red-600">Error loading questions!</div>;
-  if (!questions) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading questions...</p>
+  if (questionsError)
+    return <div className="min-h-screen flex items-center justify-center text-red-600">Error loading questions!</div>;
+
+  if (!questions)
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading questions...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <>
-
       <section className="text-gray-600 body-font overflow-hidden">
         <div className="container px-5 py-24 mx-auto">
           <div className="-my-8 divide-y-2 divide-gray-100">
@@ -146,27 +173,18 @@ export default function Questions() {
               questions.map((question) => (
                 <div key={question.questionid} className="py-8 flex flex-wrap md:flex-nowrap">
                   <div className="md:w-64 md:mb-0 mb-6 flex-shrink-0 flex flex-col">
-                    <span className="font-semibold title-font text-gray-700">
-                      {question.Status}
-                    </span>
-                    <span className="mt-1 text-gray-500 text-sm">
-                      {new Date(question.created_at).toLocaleString()}
-                    </span>
+                    <span className="font-semibold title-font text-gray-700">{question.Status}</span>
+                    <span className="mt-1 text-gray-500 text-sm">{new Date(question.created_at).toLocaleString()}</span>
                   </div>
                   <div className="md:flex-grow">
-                    <h2 className="text-2xl font-medium text-gray-900 title-font mb-2">
-                      {question.message}
-                    </h2>
+                    <h2 className="text-2xl font-medium text-gray-900 title-font mb-2">{question.message}</h2>
 
                     {answers[question.questionid] && answers[question.questionid].length > 0 && (
                       <div className="mt-4">
                         <h3 className="text-lg font-semibold text-gray-700 mb-2">Answers:</h3>
                         <ul className="space-y-2">
                           {answers[question.questionid].map((answer) => (
-                            <li
-                              key={answer.answerid}
-                              className="bg-gray-100 p-3 rounded-lg" 
-                            >
+                            <li key={answer.answerid} className="bg-gray-100 p-3 rounded-lg">
                               <p className="text-gray-800">{answer.message}</p>
                             </li>
                           ))}
@@ -180,15 +198,7 @@ export default function Questions() {
                         className="text-white bg-indigo-600 hover:bg-indigo-700 font-medium py-2 px-4 rounded-lg inline-flex items-center mt-4 transition-colors duration-300"
                       >
                         Answer
-                        <svg
-                          className="w-4 h-4 ml-2"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
+                        <svg className="w-4 h-4 ml-2" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M5 12h14"></path>
                           <path d="M12 5l7 7-7 7"></path>
                         </svg>
@@ -208,18 +218,8 @@ export default function Questions() {
         className="fixed bottom-8 right-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-lg transition-all duration-300 hover:shadow-xl z-40"
         aria-label="Add Question"
       >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 4v16m8-8H4"
-          />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
         </svg>
       </button>
 
