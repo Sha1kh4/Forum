@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 
 export default function Questions() {
@@ -8,8 +8,11 @@ export default function Questions() {
   const [currentQuestionId, setCurrentQuestionId] = useState(null);
   const [answerMessage, setAnswerMessage] = useState('');
   const [questionMessage, setQuestionMessage] = useState('');
+  const [notification, setNotification] = useState(null);
+  const wsRef = useRef(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+  const WS_URL = API_BASE_URL?.replace('http', 'ws') || 'ws://localhost:8000';
 
   // Define the fetcher for SWR
   const fetcher = (url) => fetch(url).then((res) => res.json());
@@ -19,6 +22,68 @@ export default function Questions() {
     `${API_BASE_URL}/questions`,
     fetcher
   );
+
+  // WebSocket connection
+  useEffect(() => {
+    // Connect to WebSocket
+    const ws = new WebSocket(`${WS_URL}/ws`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+    };
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      
+      if (message.type === 'new_question') {
+        // Show notification
+        setNotification({
+          type: 'question',
+          message: 'New question posted!',
+          data: message.data
+        });
+
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => setNotification(null), 5000);
+
+        // Refresh questions list
+        mutateQuestions();
+      } else if (message.type === 'new_answer') {
+        // Show notification
+        setNotification({
+          type: 'answer',
+          message: 'New answer posted!',
+          data: message.data
+        });
+
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => setNotification(null), 5000);
+
+        // Update answers for the specific question
+        const questionId = message.data.questionid;
+        setAnswers((prevAnswers) => ({
+          ...prevAnswers,
+          [questionId]: [...(prevAnswers[questionId] || []), message.data]
+        }));
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
+    // Cleanup on unmount
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
+  }, [WS_URL, mutateQuestions]);
 
   // Fetch answers for each question when questions load
   useEffect(() => {
@@ -44,10 +109,10 @@ export default function Questions() {
     ? [
         ...questions
           .filter((q) => q.Status === 'Escalated')
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), // "Escalated" first, sorted by created_at
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
         ...questions
           .filter((q) => q.Status !== 'Escalated')
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)), // Then the rest sorted by created_at
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
       ]
     : [];
 
@@ -81,7 +146,6 @@ export default function Questions() {
     xhttp.setRequestHeader('Accept', 'application/json');
     xhttp.setRequestHeader('Content-Type', 'application/json');
 
-    // Define the onload callback function
     xhttp.onload = function () {
       if (xhttp.status === 200) {
         try {
@@ -97,13 +161,11 @@ export default function Questions() {
       }
     };
 
-    // Handle network errors
     xhttp.onerror = function () {
       console.error('Network error');
       onError('There was an error submitting your request.');
     };
 
-    // Send the request with the data
     xhttp.send(JSON.stringify(data));
   };
 
@@ -121,13 +183,7 @@ export default function Questions() {
       url,
       data,
       (data) => {
-        setAnswers((prevAnswers) => {
-          const updatedAnswers = prevAnswers[currentQuestionId]
-            ? [...prevAnswers[currentQuestionId], data]
-            : [data];
-
-          return { ...prevAnswers, [currentQuestionId]: updatedAnswers };
-        });
+        // Don't manually update - WebSocket will handle it
         closeModal();
       },
       (errorMessage) => {
@@ -150,7 +206,7 @@ export default function Questions() {
       url,
       data,
       () => {
-        mutateQuestions(); // Refresh questions
+        // Don't manually refresh - WebSocket will handle it
         closeQuestionModal();
       },
       (errorMessage) => {
@@ -174,6 +230,39 @@ export default function Questions() {
 
   return (
     <>
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-20 right-8 z-50 animate-in slide-in-from-right duration-300">
+          <div className="bg-indigo-600 text-white px-6 py-4 rounded-lg shadow-xl flex items-center space-x-3 max-w-sm">
+            <div className="flex-shrink-0">
+              {notification.type === 'question' ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold">{notification.message}</p>
+              {notification.type === 'question' && (
+                <p className="text-sm text-indigo-100 truncate">{notification.data.message}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="flex-shrink-0 text-white hover:text-indigo-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="text-gray-600 body-font overflow-hidden">
         <div className="container px-5 py-24 mx-auto">
           <div className="-my-8 divide-y-2 divide-gray-100">
