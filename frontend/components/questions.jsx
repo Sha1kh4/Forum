@@ -6,10 +6,11 @@ export default function Questions() {
   const [showModal, setShowModal] = useState(false); // Control modal visibility
   const [currentQuestionId, setCurrentQuestionId] = useState(null); // Store current question id for the modal
   const [answerMessage, setAnswerMessage] = useState(""); // Store the answer message
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL; // Get API base URL from env
 
   useEffect(() => {
     // Fetch the questions (replace with your actual API endpoint)
-    fetch('https://cuddly-trout-56gxx699q9r2vvg6-8000.app.github.dev/questions')
+    fetch(`${API_BASE_URL}/questions`)
       .then((response) => response.json())
       .then((data) => {
         setQuestions(data);
@@ -19,11 +20,11 @@ export default function Questions() {
           fetchAnswers(question.questionid);
         });
       });
-  }, []);
+  }, [API_BASE_URL]);
 
   // Fetch answers for a specific question
   const fetchAnswers = (questionId) => {
-    fetch(`https://cuddly-trout-56gxx699q9r2vvg6-8000.app.github.dev/answers/${questionId}`)
+    fetch(`${API_BASE_URL}/answers/${questionId}`)
       .then((response) => response.json())
       .then((data) => {
         setAnswers((prevAnswers) => ({
@@ -52,7 +53,7 @@ export default function Questions() {
       return;
     }
 
-    fetch(`https://cuddly-trout-56gxx699q9r2vvg6-8000.app.github.dev/answer?questionid=${currentQuestionId}&answer=${encodeURIComponent(answerMessage)}`, {
+    fetch(`${API_BASE_URL}/answer?questionid=${currentQuestionId}&answer=${encodeURIComponent(answerMessage)}`, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -144,7 +145,7 @@ export default function Questions() {
 
       {/* Modal for submitting an answer */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-gray-800 bg-opacity-100 flex justify-center items-center z-50">
           <div className="bg-white p-8 rounded-lg w-96">
             <h3 className="text-xl font-semibold mb-4">Submit your answer</h3>
             <textarea
