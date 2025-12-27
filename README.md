@@ -30,12 +30,12 @@ cd Forum
 2. Create .env file for backend url in frontend DIR
 
 ```bash 
-echo "NEXT_PUBLIC_API_URL=http://localhost:8000" >> .env
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" >> .env.local
 ```
 or for powershell
 
 ```bash
-"NEXT_PUBLIC_API_URL=http://localhost:8000" | Out-File -Append .env
+"NEXT_PUBLIC_API_URL=http://localhost:8000" | Out-File -Append .env.local
 ```
 
 3. Build and start the containers:
